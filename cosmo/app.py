@@ -24,12 +24,12 @@ class App:
         self.port: int = port
         self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.routes = []
+        self.routes = {}
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         def decorator(func):
             r = Route(path, method, content_type, func)
-            self.routes.append(r)
+            self.routes[path] = r
             return r
 
         logger.debug(f"Added new route: {path}")
@@ -46,24 +46,14 @@ class App:
         headers = self._parse_headers(headers)
         method = headers[0][0].split()[0]
         routename = headers[0][0].split()[1]
-        possibleroutes = [r.path for r in self.routes]
-        if routename not in possibleroutes:
-            logger.debug(f"{addr[0]} requested a resource that does not exist")
+        route = self.routes.get(routename, None)
+        if route is None:
             conn.sendall(
-                f"HTTP/1.0 404 Not Found\nContent-Type: text/plain\n\n404 Not Found".encode()
+                "HTTP/1.0 404 Not Found\nContent-Type: text/plain\n\nNot Found".encode()
             )
+            return
         else:
-            for r in self.routes:
-                if r.path == routename:
-                    if r.method == method:
-                        conn.sendall(r._create_response().encode())
-                    else:
-                        logger.debug(
-                            f"{addr[0]} attempted to use method {method} on route {routename}"
-                        )
-                        conn.sendall(
-                            "HTTP/1.0 405 Method Not Allowed\nContent-Type: text/plain\n\n405 Method Not Allowed".encode()
-                        )
+            return conn.sendall(route._create_response().encode())
 
     def serve(self):
         self.sock.bind((self.host, self.port))
