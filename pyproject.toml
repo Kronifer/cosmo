@@ -5,6 +5,7 @@ description = "A web server I'm working on for fun."
 authors = ["Kronifer <44979306+Kronifer@users.noreply.github.com>"]
 license = "Apache-2.0"
 readme = "README.md"
+homepage = "https://github.com/kronifer/cosmo"
 
 [tool.poetry.dependencies]
 python = "^3.9"
