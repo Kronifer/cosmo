@@ -25,8 +25,7 @@ class App:
     def __init__(self, host: str, port: int):
         self.host: str = host
         self.port: int = port
-        self.sock: socket.socket = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM)
+        self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.routes = {}
 
@@ -69,8 +68,7 @@ class App:
         routename = http_header.split()[1].split("?")[0]
         try:
             flags = http_header.split()[1].split("?")[1]
-            flags = [[i[0], i[1]]
-                     for i in [i.split("=") for i in flags.split("&")]]
+            flags = [[i[0], i[1]] for i in [i.split("=") for i in flags.split("&")]]
             flags = {i[0]: i[1] for i in flags}
         except IndexError:
             flags = None
