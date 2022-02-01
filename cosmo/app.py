@@ -8,7 +8,9 @@ from .request import Request
 
 
 class Route:
-    def __init__(self, path: str, method: str, content_type: str, function: callable):
+
+    def __init__(self, path: str, method: str, content_type: str,
+                 function: callable):
         self.path = path
         self.method = method
         self.content_type = content_type
@@ -24,14 +26,20 @@ class Route:
 
 
 class App:
+
     def __init__(self, host: str, port: int):
         self.host: str = host
         self.port: int = port
-        self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock: socket.socket = socket.socket(socket.AF_INET,
+                                                 socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.routes = {}
 
-    def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
+    def route(self,
+              path: str,
+              content_type: str = "text/html",
+              method: str = "GET"):
+
         def decorator(func):
             r = Route(path, method, content_type, func)
             self.routes[path] = r
@@ -64,13 +72,14 @@ class App:
             method = http_header.split()[0]
         except:
             conn.sendall(
-                "HTTP/1.0 500 INTERNAL SERVER ERROR\nContent-Type: text/plain\n\n500 Internal Server Error".encode()
-            )  # Strange edge case where the HTTP header is blank
+                "HTTP/1.0 500 INTERNAL SERVER ERROR\nContent-Type: text/plain\n\n500 Internal Server Error"
+                .encode())  # Strange edge case where the HTTP header is blank
             return
         routename = http_header.split()[1].split("?")[0]
         try:
             flags = http_header.split()[1].split("?")[1]
-            flags = [[i[0], i[1]] for i in [i.split("=") for i in flags.split("&")]]
+            flags = [[i[0], i[1]]
+                     for i in [i.split("=") for i in flags.split("&")]]
             flags = {i[0]: i[1] for i in flags}
         except IndexError:
             flags = None
@@ -78,8 +87,8 @@ class App:
         route = self.routes.get(routename, None)
         if route is None:
             conn.sendall(
-                "HTTP/1.0 404 Not Found\nContent-Type: text/plain\n\nNot Found".encode()
-            )
+                "HTTP/1.0 404 Not Found\nContent-Type: text/plain\n\nNot Found"
+                .encode())
             return
         else:
             return conn.sendall(route._create_response(r).encode())
