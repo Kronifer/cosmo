@@ -1,7 +1,9 @@
 import socket
 import traceback
-from loguru import logger
 from threading import Thread
+
+from loguru import logger
+
 from .request import Request
 
 
