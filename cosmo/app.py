@@ -74,14 +74,14 @@ class App:
             flags = None
         r = Request(method, headers, addr[0], flags)
         route = self.routes.get(routename, None)
-        if route.method != method:
-            conn.sendall(
-                "HTTP/1.0 405 Method Not Allowed\nContent-Type: text/plain\n\n405 Method Not Allowed".encode()
-            )
-            return
         if route is None:
             conn.sendall(
                 "HTTP/1.0 404 Not Found\nContent-Type: text/plain\n\nNot Found".encode()
+            )
+            return
+        if route.method != method:
+            conn.sendall(
+                "HTTP/1.0 405 Method Not Allowed\nContent-Type: text/plain\n\n405 Method Not Allowed".encode()
             )
             return
         else:
