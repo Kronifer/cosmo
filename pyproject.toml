@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmo"
-version = "0.2.0"
+version = "0.2.1"
 description = "A web server implementation that uses raw sockets."
 authors = ["Kronifer <44979306+Kronifer@users.noreply.github.com>"]
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/kronifer/cosmo"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 loguru = "^0.5.3"
 
 [tool.poetry.dev-dependencies]
