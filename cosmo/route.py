@@ -21,7 +21,14 @@ class Route:
             for header in self.headers.keys():
                 headers += f"{header}: {self.headers[header]}\n"
             headers += "\n"
-            return f"HTTP/1.0 200 OK\n{headers}{content.content}"
+            if type(content.content) is bytes:
+                return (
+                    b"HTTP/1.0 200 OK\n"
+                    + bytes(headers, encoding="utf-8")
+                    + content.content
+                )
+            else:
+                return f"HTTP/1.0 200 OK\n{headers}{content.content}".encode()
         except Exception as e:
             logger.critical(
                 f"Traceback encountered while sending response: {traceback.format_exc(e.__traceback__)}"

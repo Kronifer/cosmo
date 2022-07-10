@@ -48,9 +48,9 @@ class App:
             headers = {"accept-ranges": "bytes"}
             with open(file_path, "rb") as f:
                 content = f.read()
-            content = content.decode("utf-8", "ignore")
-            headers["Content-Length"] = f"{sys.getsizeof(content) - sys.getsizeof(str)}"
+            headers["content-length"] = f"{len(content)}"
             return Response(content, headers)
+
         r = Route(f"/static/{file_path.split('/')[-1]}", "GET", file_type, serve_file)
         self.routes[f"/static/{file_path.split('/')[-1]}"] = r
         return r
@@ -105,7 +105,7 @@ class App:
             )
             return
         else:
-            return conn.sendall(route._create_response(r).encode())
+            return conn.sendall(route._create_response(r))
 
     def serve(self):
         self.sock.bind((self.host, self.port))
