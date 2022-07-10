@@ -11,7 +11,7 @@ class App:
     def __init__(self, host: str, port: int, cors: bool = True):
         self.host: str = host
         self.port: int = port
-        self.cors = True
+        self.cors = cors
         self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.routes = {}
