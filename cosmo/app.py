@@ -1,8 +1,9 @@
 import socket
-import traceback
+import sys
 from loguru import logger
 from threading import Thread
 from .request import Request
+from .response import Response
 from .route import Route
 
 
@@ -41,6 +42,18 @@ class App:
 
         logger.debug(f"Added new route: {path}")
         return decorator
+
+    def static(self, file_path: str, file_type: str):
+        def serve_file(request: Request):
+            headers = {"accept-ranges": "bytes"}
+            with open(file_path, "rb") as f:
+                content = f.read()
+            content = content.decode("utf-8", "ignore")
+            headers["Content-Length"] = f"{sys.getsizeof(content) - sys.getsizeof(str)}"
+            return Response(content, headers)
+        r = Route(f"/static/{file_path.split('/')[-1]}", "GET", file_type, serve_file)
+        self.routes[f"/static/{file_path.split('/')[-1]}"] = r
+        return r
 
     def _parse_headers(self, request: str):
         headers = request.split("\n")
