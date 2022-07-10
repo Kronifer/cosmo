@@ -11,23 +11,52 @@ class Route:
         self.method = method
         self.content_type = content_type
         self.function = function
+        self.headers = {"Content-Type": self.content_type}
 
     def _create_response(self, request: Request):
         try:
             content = self.function(request)
-            return f"HTTP/1.0 200 OK\nContent-Type: {self.content_type}\n\n{content}"
+            if content.headers is not None:
+                for header in content.headers:
+                    self.headers[header] = content.headers[header]
+            headers = ""
+            for header in self.headers.keys():
+                headers += f"{header}: {self.headers[header]}\n"
+            headers += "\n"
+            return f"HTTP/1.0 200 OK\n{headers}{content.content}"
         except Exception as e:
-            logger.critical(e.__traceback__)
+            logger.critical(
+                f"Traceback encountered while sending response: {traceback.format_exc(e.__traceback__)}"
+            )
             return "HTTP/1.0 500 Internal Server Error\nContent-Type: text/plain\n\nInternal Server Error"
 
 
 class App:
-    def __init__(self, host: str, port: int):
+    def __init__(self, host: str, port: int, cors: bool = True):
         self.host: str = host
         self.port: int = port
+        self.cors = True
         self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.routes = {}
+        self.errors = {
+            500: "Internal Server Error",
+            404: "Not Found",
+            405: "Method Not Allowed",
+            400: "Bad Request",
+        }
+        self.default_headers = {"Access-Control-Allow-Origin": "*"} if self.cors else {}
+
+    def throw_error(self, conn, error_code: int):
+        error = self.errors.get(error_code, None)
+        if error is None:
+            raise ValueError(f"Error code {error_code} not found")
+        base = f"HTTP/1.0 {error_code} {error}\nContent-Type: text/plain\n"
+        for key in self.default_headers.keys():
+            base += f"{key}: {self.default_headers[key]}\n"
+        base += f"\n{error}\n\n"
+        conn.sendall(base.encode())
+        return
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         def decorator(func):
@@ -61,9 +90,8 @@ class App:
         try:
             method = http_header.split()[0]
         except:
-            conn.sendall(
-                "HTTP/1.0 500 INTERNAL SERVER ERROR\nContent-Type: text/plain\n\n500 Internal Server Error".encode()
-            )  # Strange edge case where the HTTP header is blank
+            self.throw_error(conn, 400)
+            logger.debug(f"Request from {addr[0]} sent an invalid request")
             return
         routename = http_header.split()[1].split("?")[0]
         try:
@@ -75,13 +103,17 @@ class App:
         r = Request(method, headers, addr[0], flags)
         route = self.routes.get(routename, None)
         if route is None:
-            conn.sendall(
-                "HTTP/1.0 404 Not Found\nContent-Type: text/plain\n\nNot Found".encode()
+            self.throw_error(conn, 404)
+            logger.debug(
+                f"Request from {addr[0]} attempted to access a resource that does not exist"
             )
             return
+        for header in self.default_headers:
+            route.headers[header] = self.default_headers[header]
         if route.method != method:
-            conn.sendall(
-                "HTTP/1.0 405 Method Not Allowed\nContent-Type: text/plain\n\n405 Method Not Allowed".encode()
+            self.throw_error(conn, 405)
+            logger.debug(
+                f"Request from {addr[0]} attempted to use an invalid HTTP method to access a resource"
             )
             return
         else:
