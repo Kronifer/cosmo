@@ -1,3 +1,5 @@
+from loguru import logger
+import traceback
 from .request import Request
 
 
