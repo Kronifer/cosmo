@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmo"
-version = "0.3.3"
+version = "0.3.4"
 description = "A web server implementation that uses raw sockets."
 authors = ["Kronifer <44979306+Kronifer@users.noreply.github.com>"]
 license = "Apache-2.0"

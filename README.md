@@ -37,6 +37,18 @@ def index(request: Request):
 app.serve()
 ```
 
+### Returning an HTML Page
+
+```py
+from cosmo import App, html_page, Request, Response
+
+app = App("0.0.0.0", 8080)
+
+@app.route("/", "text/html")
+def index(request: Request):
+    return Response(html_page("path/to/page.html"))
+```
+
 ## Docs
 
 Coming soon...

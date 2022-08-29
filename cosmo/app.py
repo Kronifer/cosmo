@@ -8,6 +8,7 @@ from .route import Route
 
 
 class App:
+    """The base class for a Cosmo app."""
     def __init__(self, host: str, port: int, cors: bool = True):
         self.host: str = host
         self.port: int = port

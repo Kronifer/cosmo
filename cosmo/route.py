@@ -4,6 +4,7 @@ from .request import Request
 
 
 class Route:
+    """A class representing a route in a Cosmo app."""
     def __init__(self, path: str, method: str, content_type: str, function: callable):
         self.path = path
         self.method = method
