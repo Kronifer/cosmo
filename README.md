@@ -12,7 +12,7 @@ from cosmo import App, Request, Response
 app = App("0.0.0.0", 8080)
 
 @app.route("/", "text/html")
-def index(request: Request):
+async def index(request: Request):
     return Response(f"<h1>{request.address}</h1>")
 
 app.serve()
@@ -26,7 +26,7 @@ from cosmo import App, Request, Response
 app = App("0.0.0.0", 8080)
 
 @app.route("/", "text/html")
-def index(request: Request):
+async def index(request: Request):
     headers = {"x-custom-header": "custom"}
     content = "<h1>Custom Headers: </h1>\n<ul>"
     for header in headers.keys():
@@ -45,7 +45,7 @@ from cosmo import App, html_page, Request, Response
 app = App("0.0.0.0", 8080)
 
 @app.route("/", "text/html")
-def index(request: Request):
+async def index(request: Request):
     return Response(html_page("path/to/page.html"))
 ```
 
