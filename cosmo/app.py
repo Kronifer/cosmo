@@ -41,6 +41,14 @@ class App:
         conn.sendall(base.encode())
         return
 
+    async def recv_headers(self, conn: socket.socket):
+        headers = bytes()
+        while True:
+            piece = conn.recv(1024)
+            headers += piece
+            if len(piece) < 1024:
+                return headers
+
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         def decorator(func):
             r = Route(path, method, content_type, func)
@@ -78,9 +86,10 @@ class App:
         headers = {i.split(":")[0]: i.split(":")[1] for i in headers}
         return http_header, headers
 
-    async def _new_connection(self, conn, addr):
+    async def _new_connection(self, conn: socket.socket, addr: tuple):
         logger.debug(f"New connection from {addr[0]}")
-        headers = conn.recv(1024).decode()
+        headers = await self.recv_headers(conn)
+        headers = headers.decode()
         http_header, headers = await self._parse_headers(headers)
         try:
             method = http_header.split()[0]
