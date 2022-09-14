@@ -1,14 +1,20 @@
+import asyncio
 import socket
 import sys
+
+import uvloop
 from loguru import logger
-from threading import Thread
+
 from .request import Request
 from .response import Response
 from .route import Route
 
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
 
 class App:
     """The base class for a Cosmo app."""
+
     def __init__(self, host: str, port: int, cors: bool = True):
         self.host: str = host
         self.port: int = port
@@ -45,7 +51,7 @@ class App:
         return decorator
 
     def static(self, file_path: str, file_type: str):
-        def serve_file(request: Request):
+        async def serve_file(request: Request):
             headers = {"accept-ranges": "bytes"}
             with open(file_path, "rb") as f:
                 content = f.read()
@@ -56,7 +62,7 @@ class App:
         self.routes[f"/static/{file_path.split('/')[-1]}"] = r
         return r
 
-    def _parse_headers(self, request: str):
+    async def _parse_headers(self, request: str):
         headers = request.split("\n")
         http_header = headers[0]
         del headers[0]
@@ -72,10 +78,10 @@ class App:
         headers = {i.split(":")[0]: i.split(":")[1] for i in headers}
         return http_header, headers
 
-    def _new_connection(self, conn, addr):
+    async def _new_connection(self, conn, addr):
         logger.debug(f"New connection from {addr[0]}")
         headers = conn.recv(1024).decode()
-        http_header, headers = self._parse_headers(headers)
+        http_header, headers = await self._parse_headers(headers)
         try:
             method = http_header.split()[0]
         except:
@@ -106,7 +112,7 @@ class App:
             )
             return
         else:
-            return conn.sendall(route._create_response(r))
+            return conn.sendall(await route._create_response(r))
 
     def serve(self):
         self.sock.bind((self.host, self.port))
@@ -114,4 +120,4 @@ class App:
         logger.debug(f"Listening on {self.host}:{self.port}")
         while True:
             conn, addr = self.sock.accept()
-            Thread(target=self._new_connection, args=(conn, addr)).start()
+            asyncio.run(self._new_connection(conn, addr))

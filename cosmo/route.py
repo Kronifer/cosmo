@@ -1,20 +1,24 @@
-from loguru import logger
 import traceback
+from typing import Coroutine
+
+from loguru import logger
+
 from .request import Request
 
 
 class Route:
     """A class representing a route in a Cosmo app."""
-    def __init__(self, path: str, method: str, content_type: str, function: callable):
+
+    def __init__(self, path: str, method: str, content_type: str, function: Coroutine):
         self.path = path
         self.method = method
         self.content_type = content_type
         self.function = function
         self.headers = {"Content-Type": self.content_type}
 
-    def _create_response(self, request: Request):
+    async def _create_response(self, request: Request):
         try:
-            content = self.function(request)
+            content = await self.function(request)
             if content.headers is not None:
                 for header in content.headers:
                     self.headers[header] = content.headers[header]
