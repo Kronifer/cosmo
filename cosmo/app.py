@@ -34,10 +34,10 @@ class App:
         error = self.errors.get(error_code, None)
         if error is None:
             raise ValueError(f"Error code {error_code} not found")
-        base = f"HTTP/1.0 {error_code} {error}\nContent-Type: text/plain\n"
+        base = f"HTTP/1.0 {error_code} {error}\r\nContent-Type: text/plain\r\n"
         for key in self.default_headers.keys():
-            base += f"{key}: {self.default_headers[key]}\n"
-        base += f"\n{error}\n\n"
+            base += f"{key}: {self.default_headers[key]}\r\n"
+        base += f"\r\n{error}\r\n"
         conn.sendall(base.encode())
         return
 
