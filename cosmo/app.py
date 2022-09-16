@@ -34,7 +34,7 @@ class App:
         error = self.errors.get(error_code, None)
         if error is None:
             raise ValueError(f"Error code {error_code} not found")
-        base = f"HTTP/1.0 {error_code} {error}\r\nContent-Type: text/plain\r\n"
+        base = f"HTTP/1.0 {error_code} {error}\r\nContent-Type: text/plain\r\nContent-Length: {len(error)+2}\r\n"
         for key in self.default_headers.keys():
             base += f"{key}: {self.default_headers[key]}\r\n"
         base += f"\r\n{error}\r\n"
@@ -42,12 +42,17 @@ class App:
         return
 
     async def recv_headers(self, conn: socket.socket):
+        """Coroutine to receive headers asynchronously."""
         headers = bytes()
         while True:
             piece = conn.recv(1024)
             headers += piece
             if len(piece) < 1024:
                 return headers
+
+    async def send_resp(self, conn: socket.socket, route: Route, request: Request):
+        """Coroutine to send response asynchronously."""
+        conn.sendall(await route._create_response(request))
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         def decorator(func):
@@ -90,7 +95,12 @@ class App:
         logger.debug(f"New connection from {addr[0]}")
         headers = await self.recv_headers(conn)
         headers = headers.decode()
-        http_header, headers = await self._parse_headers(headers)
+        try:
+            http_header, headers = await self._parse_headers(headers)
+        except:
+            self.throw_error(conn, 400)
+            logger.debug(f"Request from {addr[0]} was invalid")
+            return
         try:
             method = http_header.split()[0]
         except:
@@ -121,7 +131,7 @@ class App:
             )
             return
         else:
-            return conn.sendall(await route._create_response(r))
+            return await self.send_resp(conn, route, r)
 
     def serve(self):
         self.sock.bind((self.host, self.port))
