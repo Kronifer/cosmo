@@ -9,18 +9,21 @@ from .request import Request
 from .response import Response
 from .route import Route
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
 
 class App:
     """The base class for a Cosmo app."""
 
-    def __init__(self, host: str, port: int, cors: bool = True):
+    def __init__(
+        self, host: str, port: int, cors: bool = True, use_uvloop: bool = True
+    ):
         self.host: str = host
         self.port: int = port
         self.cors = cors
         self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket.setdefaulttimeout(2)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if use_uvloop:
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         self.routes = {}
         self.errors = {
             500: "Internal Server Error",
@@ -45,7 +48,10 @@ class App:
         """Coroutine to receive headers asynchronously."""
         headers = bytes()
         while True:
-            piece = conn.recv(1024)
+            try:
+                piece = conn.recv(1024)
+            except:
+                return
             headers += piece
             if len(piece) < 1024:
                 return headers
@@ -53,6 +59,7 @@ class App:
     async def send_resp(self, conn: socket.socket, route: Route, request: Request):
         """Coroutine to send response asynchronously."""
         conn.sendall(await route._create_response(request))
+        conn.close()
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         def decorator(func):
@@ -60,7 +67,6 @@ class App:
             self.routes[path] = r
             return r
 
-        logger.debug(f"Added new route: {path}")
         return decorator
 
     def static(self, file_path: str, file_type: str):
@@ -92,20 +98,25 @@ class App:
         return http_header, headers
 
     async def _new_connection(self, conn: socket.socket, addr: tuple):
-        logger.debug(f"New connection from {addr[0]}")
         headers = await self.recv_headers(conn)
+        if headers is None:
+            conn.close()
+            logger.debug(
+                f"Closed connection from {addr[0]} as no headers were received"
+            )
+            return
         headers = headers.decode()
         try:
             http_header, headers = await self._parse_headers(headers)
         except:
             self.throw_error(conn, 400)
-            logger.debug(f"Request from {addr[0]} was invalid")
+            logger.error(f"{addr[0]} sent an invalid request")
             return
         try:
             method = http_header.split()[0]
         except:
             self.throw_error(conn, 400)
-            logger.debug(f"Request from {addr[0]} was invalid")
+            logger.error(f"{addr[0]} sent an invalid request")
             return
         routename = http_header.split()[1].split("?")[0]
         try:
@@ -118,7 +129,7 @@ class App:
         route = self.routes.get(routename, None)
         if route is None:
             self.throw_error(conn, 404)
-            logger.debug(
+            logger.error(
                 f"Request from {addr[0]} attempted to access a resource that does not exist"
             )
             return
@@ -126,8 +137,8 @@ class App:
             route.headers[header] = self.default_headers[header]
         if route.method != method:
             self.throw_error(conn, 405)
-            logger.debug(
-                f"Request from {addr[0]} attempted to use an invalid HTTP method to access a resource"
+            logger.error(
+                f"Request from {addr[0]} attempted to access a resource using an incorrect HTTP method"
             )
             return
         else:
