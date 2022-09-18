@@ -47,6 +47,34 @@ app = App("0.0.0.0", 8080)
 @app.route("/", "text/html")
 async def index(request: Request):
     return Response(html_page("path/to/page.html"))
+
+app.serve()
+```
+
+### Using Routes from a different file
+
+In `router.py`:
+```py
+from cosmo import Request, Response, Router
+
+router = Router()
+
+@router.route("/")
+async def index():
+    return Response("<h1>Hi</h1>")
+```
+
+In `app.py`:
+```py
+from cosmo import App, Request, Response
+
+from router import router
+
+app = App("0.0.0.0", 8080)
+
+app.import_router(router)
+
+app.serve()
 ```
 
 ## Docs
