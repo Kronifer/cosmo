@@ -8,6 +8,7 @@ from loguru import logger
 from .request import Request
 from .response import Response
 from .route import Route
+from .router import Router
 
 
 class App:
@@ -69,6 +70,10 @@ class App:
 
         return decorator
 
+    def import_router(self, router: Router):
+        for path in router.export_routes().keys():
+            self.routes[path] = router.export_routes()[path]
+
     def static(self, file_path: str, file_type: str):
         async def serve_file(request: Request):
             headers = {"accept-ranges": "bytes"}
@@ -119,6 +124,10 @@ class App:
             logger.error(f"{addr[0]} sent an invalid request")
             return
         routename = http_header.split()[1].split("?")[0]
+        if routename[-1] == "/":
+            routename = list(routename)
+            del routename[-1]
+            routename = "".join(routename)
         try:
             flags = http_header.split()[1].split("?")[1]
             flags = [[i[0], i[1]] for i in [i.split("=") for i in flags.split("&")]]
