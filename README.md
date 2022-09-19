@@ -2,6 +2,10 @@
 
 Cosmo is a multithreaded python webserver that I'm developing in my spare time. Cosmo utilizes a TCP socket to send and receive data.
 
+## Benchmarking
+
+![Connections Handled per Second](https://user-images.githubusercontent.com/44979306/191119603-e9b97cb1-b8dc-4cf0-8bf3-2a927dac8dac.png)
+
 ## Examples
 
 ### Simple Server
