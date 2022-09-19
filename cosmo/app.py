@@ -32,7 +32,11 @@ class App:
             405: "Method Not Allowed",
             400: "Bad Request",
         }
-        self.default_headers = {"Access-Control-Allow-Origin": "*"} if self.cors else {}
+        self.default_headers = (
+            {"Access-Control-Allow-Origin": "*", "server": "cosmo"}
+            if self.cors
+            else {"server": "cosmo"}
+        )
 
     def throw_error(self, conn, error_code: int):
         error = self.errors.get(error_code, None)
@@ -110,7 +114,12 @@ class App:
                 f"Closed connection from {addr[0]} as no headers were received"
             )
             return
-        headers = headers.decode()
+        try:
+            headers = headers.decode()
+        except:
+            self.throw_error(conn, 400)
+            logger.error(f"{addr[0]} send an invalid request")
+            return
         try:
             http_header, headers = await self._parse_headers(headers)
         except:
@@ -123,8 +132,13 @@ class App:
             self.throw_error(conn, 400)
             logger.error(f"{addr[0]} sent an invalid request")
             return
-        routename = http_header.split()[1].split("?")[0]
-        if routename[-1] == "/":
+        try:
+            routename = http_header.split()[1].split("?")[0]
+        except:
+            self.throw_error(conn, 400)
+            logger.error(f"{addr[0]} sent an invalid request")
+            return
+        if routename[-1] == "/" and len(routename) != 1:
             routename = list(routename)
             del routename[-1]
             routename = "".join(routename)
