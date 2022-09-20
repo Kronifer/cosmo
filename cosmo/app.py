@@ -5,6 +5,7 @@ import sys
 import uvloop
 from loguru import logger
 
+from .error import Error
 from .request import Request
 from .response import Response
 from .route import Route
@@ -27,10 +28,10 @@ class App:
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         self.routes = {}
         self.errors = {
-            500: "Internal Server Error",
-            404: "Not Found",
-            405: "Method Not Allowed",
-            400: "Bad Request",
+            500: Error("text/plain", "Internal Server Error"),
+            404: Error("text/plain", "Not Found"),
+            405: Error("text/plain", "Method Not Allowed"),
+            400: Error("text/plain", "Bad Request"),
         }
         self.default_headers = (
             {"Access-Control-Allow-Origin": "*", "server": "cosmo"}
@@ -42,10 +43,10 @@ class App:
         error = self.errors.get(error_code, None)
         if error is None:
             raise ValueError(f"Error code {error_code} not found")
-        base = f"HTTP/1.0 {error_code} {error}\r\nContent-Type: text/plain\r\nContent-Length: {len(error)+2}\r\n"
+        base = f"HTTP/1.0 {error_code} {error}\r\nContent-Type: {error.content_type}\r\nContent-Length: {len(error)+2}\r\n"
         for key in self.default_headers.keys():
             base += f"{key}: {self.default_headers[key]}\r\n"
-        base += f"\r\n{error}\r\n"
+        base += f"\r\n{error.content}\r\n"
         conn.sendall(base.encode())
         return
 
@@ -67,6 +68,8 @@ class App:
         conn.close()
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
+        """Decorator to define a new route."""
+
         def decorator(func):
             r = Route(path, method, content_type, func)
             self.routes[path] = r
@@ -75,10 +78,13 @@ class App:
         return decorator
 
     def import_router(self, router: Router):
+        """Imports a router from another file."""
         for path in router.export_routes().keys():
             self.routes[path] = router.export_routes()[path]
 
     def static(self, file_path: str, file_type: str):
+        """Defines a static file."""
+
         async def serve_file(request: Request):
             headers = {"accept-ranges": "bytes"}
             with open(file_path, "rb") as f:
@@ -90,7 +96,12 @@ class App:
         self.routes[f"/static/{file_path.split('/')[-1]}"] = r
         return r
 
+    def set_error(self, error_code: int, content_type: str, content: str):
+        self.errors[error_code] = Error(content_type, content)
+        return
+
     async def _parse_headers(self, request: str):
+        """Parses HTTP headers."""
         headers = request.split("\n")
         http_header = headers[0]
         del headers[0]
@@ -107,6 +118,7 @@ class App:
         return http_header, headers
 
     async def _new_connection(self, conn: socket.socket, addr: tuple):
+        """Connection handler."""
         headers = await self.recv_headers(conn)
         if headers is None:
             conn.close()
