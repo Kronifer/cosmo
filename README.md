@@ -1,6 +1,6 @@
 # Cosmo
 
-Cosmo is a multithreaded python webserver that I'm developing in my spare time. Cosmo utilizes a TCP socket to send and receive data.
+Cosmo is an asynchronous python webserver that utilizes raw sockets to send and receive data, without using ASGI/WSGI.
 
 ## Benchmarking
 
