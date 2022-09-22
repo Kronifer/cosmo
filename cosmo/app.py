@@ -8,7 +8,7 @@ from loguru import logger
 from .error import Error
 from .request import Request
 from .response import Response
-from .route import Route
+from .route import Route, Subroute
 from .router import Router
 
 
@@ -33,17 +33,23 @@ class App:
             405: Error("text/plain", "Method Not Allowed"),
             400: Error("text/plain", "Bad Request"),
         }
+        self.error_names = {
+            400: "Bad Request",
+            404: "Not Found",
+            405: "Method Not Allowed",
+            500: "Internal Server Error",
+        }
         self.default_headers = (
             {"Access-Control-Allow-Origin": "*", "server": "cosmo"}
             if self.cors
             else {"server": "cosmo"}
         )
 
-    def throw_error(self, conn, error_code: int):
+    async def throw_error(self, conn, error_code: int):
         error = self.errors.get(error_code, None)
         if error is None:
             raise ValueError(f"Error code {error_code} not found")
-        base = f"HTTP/1.0 {error_code} {error}\r\nContent-Type: {error.content_type}\r\nContent-Length: {len(error)+2}\r\n"
+        base = f"HTTP/1.0 {error_code} {self.error_names[error_code]}\r\nContent-Type: {error.content_type}\r\nContent-Length: {len(error.content)+2}\r\n"
         for key in self.default_headers.keys():
             base += f"{key}: {self.default_headers[key]}\r\n"
         base += f"\r\n{error.content}\r\n"
@@ -62,15 +68,29 @@ class App:
             if len(piece) < 1024:
                 return headers
 
-    async def send_resp(self, conn: socket.socket, route: Route, request: Request):
+    async def send_resp(
+        self, conn: socket.socket, addr: tuple, route: Route, request: Request
+    ):
         """Coroutine to send response asynchronously."""
-        conn.sendall(await route._create_response(request))
+        resp = await route._create_response(request)
+        if resp is None:
+            await self.throw_error(conn, 405)
+            logger.error(
+                f"Request from {addr[0]} attempted to access a resource with an invalid method"
+            )
+            return
+        conn.sendall(resp)
         conn.close()
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         """Decorator to define a new route."""
 
         def decorator(func):
+            if path in self.routes.keys():
+                if self.routes[path].functions[method.upper()] is not None:
+                    raise KeyError("Method Already Exists")
+                self.routes[path].functions[method] = Subroute(content_type, func)
+                return
             r = Route(path, method, content_type, func)
             self.routes[path] = r
             return r
@@ -80,6 +100,11 @@ class App:
     def import_router(self, router: Router):
         """Imports a router from another file."""
         for path in router.export_routes().keys():
+            if path in self.routes.keys():
+                if self.routes[path].functions[method.upper()] is not None:
+                    raise KeyError("Method Already Exists")
+                self.routes[path].functions[method] = Subroute(content_type, func)
+                return
             self.routes[path] = router.export_routes()[path]
 
     def static(self, file_path: str, file_type: str):
@@ -100,14 +125,24 @@ class App:
         self.errors[error_code] = Error(content_type, content)
         return
 
-    async def _parse_headers(self, request: str):
+    async def _get_post_body(self, request: str):
+        headers = request.split("\r\n")
+        if headers.index("") != len(headers) - 1:
+            body = "\r\n".join(headers[headers.index("") :])
+            if body == "":
+                body = None
+            return body, headers.index("")
+        else:
+            return None
+
+    async def _parse_headers(self, request: str, index: str):
         """Parses HTTP headers."""
-        headers = request.split("\n")
+        headers = request.split("\r\n")
+        del headers[index:]
         http_header = headers[0]
         del headers[0]
         for i in headers:
             index = headers.index(i)
-            i = i.replace("\r", "")  # Remove \r
             headers[index] = i
         while True:
             try:
@@ -129,25 +164,26 @@ class App:
         try:
             headers = headers.decode()
         except:
-            self.throw_error(conn, 400)
+            await self.throw_error(conn, 400)
             logger.error(f"{addr[0]} send an invalid request")
             return
         try:
-            http_header, headers = await self._parse_headers(headers)
+            body, index = await self._get_post_body(headers)
+            http_header, headers = await self._parse_headers(headers, index)
         except:
-            self.throw_error(conn, 400)
+            await self.throw_error(conn, 400)
             logger.error(f"{addr[0]} sent an invalid request")
             return
         try:
             method = http_header.split()[0]
         except:
-            self.throw_error(conn, 400)
+            await self.throw_error(conn, 400)
             logger.error(f"{addr[0]} sent an invalid request")
             return
         try:
             routename = http_header.split()[1].split("?")[0]
         except:
-            self.throw_error(conn, 400)
+            await self.throw_error(conn, 400)
             logger.error(f"{addr[0]} sent an invalid request")
             return
         if routename[-1] == "/" and len(routename) != 1:
@@ -160,24 +196,17 @@ class App:
             flags = {i[0]: i[1] for i in flags}
         except IndexError:
             flags = None
-        r = Request(method, headers, addr[0], flags)
+        r = Request(method, headers, addr[0], flags, body)
         route = self.routes.get(routename, None)
         if route is None:
-            self.throw_error(conn, 404)
+            await self.throw_error(conn, 404)
             logger.error(
                 f"Request from {addr[0]} attempted to access a resource that does not exist"
             )
             return
         for header in self.default_headers:
-            route.headers[header] = self.default_headers[header]
-        if route.method != method:
-            self.throw_error(conn, 405)
-            logger.error(
-                f"Request from {addr[0]} attempted to access a resource using an incorrect HTTP method"
-            )
-            return
-        else:
-            return await self.send_resp(conn, route, r)
+            route.default_headers[header] = self.default_headers[header]
+        return await self.send_resp(conn, addr, route, r)
 
     def serve(self):
         self.sock.bind((self.host, self.port))
