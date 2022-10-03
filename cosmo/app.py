@@ -114,7 +114,7 @@ class App:
             headers = {"accept-ranges": "bytes"}
             with open(file_path, "rb") as f:
                 content = f.read()
-            headers["content-length"] = f"{len(content)}"
+            headers["Content-Length"] = f"{len(content)}"
             return Response(content, headers)
 
         r = Route(f"/static/{file_path.split('/')[-1]}", "GET", file_type, serve_file)

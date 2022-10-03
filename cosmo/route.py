@@ -42,7 +42,7 @@ class Route:
                 return None
             headers_dict = {"Content-Type": subroute.content_type}
             content = await subroute.function(request)
-            headers_dict["Content-Length"] = len(content.content) + 2
+            headers_dict["Content-Length"] = len(str(content.content)) + 2
             if content.headers is not None:
                 for header in content.headers:
                     headers_dict[header] = content.headers[header]
