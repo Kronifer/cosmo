@@ -1,8 +1,9 @@
 import asyncio
 import socket
+import ssl
 import sys
+from typing import Optional
 
-import uvloop
 from loguru import logger
 
 from .error import Error
@@ -10,13 +11,19 @@ from .request import Request
 from .response import Response
 from .route import Route, Subroute
 from .router import Router
+from .ssl import SSL
 
 
 class App:
     """The base class for a Cosmo app."""
 
     def __init__(
-        self, host: str, port: int, cors: bool = True, use_uvloop: bool = True
+        self,
+        host: str,
+        port: int,
+        cors: bool = True,
+        use_uvloop: bool = True,
+        ssl_cert: Optional[SSL] = None,
     ):
         self.host: str = host
         self.port: int = port
@@ -25,7 +32,15 @@ class App:
         socket.setdefaulttimeout(2)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if use_uvloop:
+            import uvloop
+
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        if ssl_cert is not None:
+            self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            self.ctx.load_cert_chain(ssl_cert.cert_path, ssl_cert.key_path)
+            self.sock = self.ctx.wrap_socket(self.sock, server_side=True)
+            self.port = 443 if self.port == 80 else 8443
+            logger.debug(f"Using HTTPS, switching port to {self.port}")
         self.routes = {}
         self.errors = {
             500: Error("text/plain", "Internal Server Error"),

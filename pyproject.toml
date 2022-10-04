@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cosmo"
-version = "0.4.9"
+version = "0.5.0"
 description = "A web server implementation that uses raw sockets."
 authors = ["Kronifer <44979306+Kronifer@users.noreply.github.com>"]
 license = "Apache-2.0"
@@ -20,6 +20,7 @@ isort = "^5.10.1"
 
 [tool.taskipy.tasks]
 format = "black ."
+sort = "isort ."
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
