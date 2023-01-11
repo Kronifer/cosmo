@@ -18,7 +18,7 @@ taskipy = "^1.9.0"
 isort = "^5.10.1"
 
 [tool.poetry.extras]
-uvloop = "^0.16.0"
+uvloop = ["uvloop"]
 
 [tool.taskipy.tasks]
 format = "black ."
