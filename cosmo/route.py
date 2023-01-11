@@ -5,6 +5,7 @@ from typing import Coroutine
 from loguru import logger
 
 from .request import Request
+from .status_codes import status_codes
 
 
 @dataclass
@@ -37,6 +38,8 @@ class Route:
     async def _create_response(self, request: Request):
         try:
             method = request.method.upper()
+            if method not in self.functions.keys():
+                return f"HTTP/1.0 501 {status_codes[501]}\r\nContent-Type: text/plain\r\n\r\nNot Implemented"
             subroute = self.functions.get(method, None)
             if subroute is None:
                 return None
@@ -54,12 +57,12 @@ class Route:
             headers += "\r\n"
             if type(content.content) is bytes:
                 return (
-                    b"HTTP/1.0 200 OK\r\n"
+                    b"HTTP/1.0 " + str(content.code).encode("utf8") + b" " + status_codes[content.code].encode("utf8") + b"\r\n"
                     + bytes(headers, encoding="utf-8")
                     + content.content
                 )
             else:
-                return f"HTTP/1.0 200 OK\r\n{headers}{content.content}\r\n".encode()
+                return f"HTTP/1.0 {content.code} {status_codes[content.code]}\r\n{headers}{content.content}\r\n".encode()
         except Exception as e:
             logger.critical(
                 f"Traceback encountered while sending response: {traceback.format_exc(e.__traceback__)}"

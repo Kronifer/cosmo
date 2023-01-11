@@ -11,6 +11,7 @@ from .request import Request
 from .response import Response
 from .route import Route, Subroute
 from .router import Router
+from .status_codes import status_codes
 from .ssl import SSL
 
 
@@ -33,7 +34,6 @@ class App:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if use_uvloop:
             import uvloop
-
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         if ssl_cert is not None:
             self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -48,12 +48,7 @@ class App:
             405: Error("text/plain", "Method Not Allowed"),
             400: Error("text/plain", "Bad Request"),
         }
-        self.error_names = {
-            400: "Bad Request",
-            404: "Not Found",
-            405: "Method Not Allowed",
-            500: "Internal Server Error",
-        }
+        self.error_names = status_codes
         self.default_headers = (
             {"Access-Control-Allow-Origin": "*", "server": "cosmo"}
             if self.cors
@@ -62,12 +57,17 @@ class App:
 
     async def throw_error(self, conn, error_code: int):
         error = self.errors.get(error_code, None)
+        default = False
         if error is None:
-            raise ValueError(f"Error code {error_code} not found")
-        base = f"HTTP/1.0 {error_code} {self.error_names[error_code]}\r\nContent-Type: {error.content_type}\r\nContent-Length: {len(error.content)+2}\r\n"
+            base = f"HTTP/1.0 {error_code} {self.error_names[error_code]}\r\nContent-Type: text/plain\r\nContent-Length: {len(self.error_names[error_code])+2}\r\n"
+        else:
+            base = f"HTTP/1.0 {error_code} {self.error_names[error_code]}\r\nContent-Type: {error.content_type}\r\nContent-Length: {len(error.content)+2}\r\n"
         for key in self.default_headers.keys():
             base += f"{key}: {self.default_headers[key]}\r\n"
-        base += f"\r\n{error.content}\r\n"
+        if not default:
+            base += f"\r\n{error.content}\r\n"
+        else:
+            base += f"\r\n{self.error_names[error_code]}\r\n"
         conn.sendall(base.encode())
         return
 
