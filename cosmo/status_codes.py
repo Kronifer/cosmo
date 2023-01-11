@@ -45,5 +45,5 @@ status_codes = {
     505: "HTTP Version Not Supported",
     506: "Variant Also Negotiates",
     510: "Not Extended",
-    511: "Network Authentication Required"
+    511: "Network Authentication Required",
 }

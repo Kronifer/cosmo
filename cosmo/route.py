@@ -57,7 +57,11 @@ class Route:
             headers += "\r\n"
             if type(content.content) is bytes:
                 return (
-                    b"HTTP/1.0 " + str(content.code).encode("utf8") + b" " + status_codes[content.code].encode("utf8") + b"\r\n"
+                    b"HTTP/1.0 "
+                    + str(content.code).encode("utf8")
+                    + b" "
+                    + status_codes[content.code].encode("utf8")
+                    + b"\r\n"
                     + bytes(headers, encoding="utf-8")
                     + content.content
                 )

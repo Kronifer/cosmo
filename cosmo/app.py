@@ -11,8 +11,8 @@ from .request import Request
 from .response import Response
 from .route import Route, Subroute
 from .router import Router
-from .status_codes import status_codes
 from .ssl import SSL
+from .status_codes import status_codes
 
 
 class App:
@@ -34,6 +34,7 @@ class App:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if use_uvloop:
             import uvloop
+
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         if ssl_cert is not None:
             self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
