@@ -8,7 +8,7 @@ class Request:
         self,
         method: str,
         headers: dict,
-        address: str,
+        address: tuple,
         url_flags: Optional[dict] = None,
         body: Optional[str] = None,
     ):

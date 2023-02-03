@@ -1,7 +1,6 @@
 import asyncio
 import socket
 import ssl
-import sys
 from typing import Optional
 
 from loguru import logger
@@ -23,15 +22,12 @@ class App:
         host: str,
         port: int,
         cors: bool = True,
-        use_uvloop: bool = True,
+        use_uvloop: bool = False,
         ssl_cert: Optional[SSL] = None,
     ):
         self.host: str = host
         self.port: int = port
         self.cors = cors
-        self.sock: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        socket.setdefaulttimeout(2)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if use_uvloop:
             import uvloop
 
@@ -39,7 +35,6 @@ class App:
         if ssl_cert is not None:
             self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             self.ctx.load_cert_chain(ssl_cert.cert_path, ssl_cert.key_path)
-            self.sock = self.ctx.wrap_socket(self.sock, server_side=True)
             self.port = 443 if self.port == 80 else 8443
             logger.debug(f"Using HTTPS, switching port to {self.port}")
         self.routes = {}
@@ -55,6 +50,7 @@ class App:
             if self.cors
             else {"server": "cosmo"}
         )
+        self.loop = asyncio.get_event_loop()
 
     async def throw_error(self, conn, error_code: int):
         error = self.errors.get(error_code, None)
@@ -69,7 +65,8 @@ class App:
             base += f"\r\n{error.content}\r\n"
         else:
             base += f"\r\n{self.error_names[error_code]}\r\n"
-        conn.sendall(base.encode())
+        conn[1].write(base.encode())
+        await conn[1].drain()
         return
 
     async def recv_headers(self, conn: socket.socket):
@@ -77,7 +74,7 @@ class App:
         headers = bytes()
         while True:
             try:
-                piece = conn.recv(1024)
+                piece = await conn[0].read(1024)
             except:
                 return
             headers += piece
@@ -95,8 +92,10 @@ class App:
                 f"Request from {addr[0]} attempted to access a resource with an invalid method"
             )
             return
-        conn.sendall(resp)
-        conn.close()
+        conn[1].write(resp)
+        await conn[1].drain()
+        conn[1].close()
+        await conn[1].wait_closed()
 
     def route(self, path: str, content_type: str = "text/html", method: str = "GET"):
         """Decorator to define a new route."""
@@ -168,11 +167,16 @@ class App:
         headers = {i.split(":")[0]: i.split(":")[1] for i in headers}
         return http_header, headers
 
-    async def _new_connection(self, conn: socket.socket, addr: tuple):
+    async def _new_connection(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ):
+        conn = (reader, writer)
         """Connection handler."""
         headers = await self.recv_headers(conn)
+        addr = conn[1].get_extra_info("peername")
         if headers is None:
-            conn.close()
+            conn[1].close()
+            await conn[1].wait_closed()
             logger.debug(
                 f"Closed connection from {addr[0]} as no headers were received"
             )
@@ -212,7 +216,7 @@ class App:
             flags = {i[0]: i[1] for i in flags}
         except IndexError:
             flags = None
-        r = Request(method, headers, addr[0], flags, body)
+        r = Request(method, headers, addr, flags, body)
         route = self.routes.get(routename, None)
         if route is None:
             await self.throw_error(conn, 404)
@@ -225,9 +229,12 @@ class App:
         return await self.send_resp(conn, addr, route, r)
 
     def serve(self):
-        self.sock.bind((self.host, self.port))
-        self.sock.listen(5)
+        if self.port == 443 or self.port == 8443:
+            cor = asyncio.start_server(
+                self._new_connection, self.host, self.port, ssl=self.ctx
+            )
+        else:
+            cor = asyncio.start_server(self._new_connection, self.host, self.port)
+        server = self.loop.run_until_complete(cor)
         logger.debug(f"Listening on {self.host}:{self.port}")
-        while True:
-            conn, addr = self.sock.accept()
-            asyncio.run(self._new_connection(conn, addr))
+        self.loop.run_forever()

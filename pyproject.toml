@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "cosmo"
-version = "0.6.0"
-description = "A web server implementation that uses raw sockets."
+version = "0.7.0"
+description = "A high-level web server with fine tuned low-level control."
 authors = ["Kronifer <44979306+Kronifer@users.noreply.github.com>"]
 license = "Apache-2.0"
 readme = "README.md"
