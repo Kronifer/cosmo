@@ -52,7 +52,7 @@ class App:
         )
         self.loop = asyncio.get_event_loop()
 
-    async def throw_error(self, conn, error_code: int):
+    async def throw_error(self, conn: tuple, error_code: int):
         error = self.errors.get(error_code, None)
         default = False
         if error is None:
@@ -69,7 +69,7 @@ class App:
         await conn[1].drain()
         return
 
-    async def recv_headers(self, conn: socket.socket):
+    async def recv_headers(self, conn: tuple):
         """Coroutine to receive headers asynchronously."""
         headers = bytes()
         while True:
@@ -82,7 +82,7 @@ class App:
                 return headers
 
     async def send_resp(
-        self, conn: socket.socket, addr: tuple, route: Route, request: Request
+        self, conn: tuple, addr: tuple, route: Route, request: Request
     ):
         """Coroutine to send response asynchronously."""
         resp = await route._create_response(request)
