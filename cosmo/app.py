@@ -170,8 +170,8 @@ class App:
     async def _new_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
-        conn = (reader, writer)
         """Connection handler."""
+        conn = (reader, writer)
         headers = await self.recv_headers(conn)
         addr = conn[1].get_extra_info("peername")
         if headers is None:
